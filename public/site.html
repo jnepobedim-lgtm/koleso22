@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Колесо Фортуны</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
+    min-height: 100vh;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 20px;
+    gap: 30px;
+    flex-wrap: wrap;
+  }
+
+  h1 {
+    text-align: center;
+    width: 100%;
+    font-size: 2.2em;
+    margin-bottom: 10px;
+    text-shadow: 0 0 20px rgba(255,215,0,.5);
+  }
+
+  .wheel-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .wheel-container {
+    position: relative;
+    width: 450px;
+    height: 450px;
+  }
+
+  canvas {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    box-shadow: 0 0 40px rgba(255,215,0,.4), 0 0 80px rgba(139,92,246,.5);
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,.5));
+  }
+
+  .pointer {
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 20px solid transparent;
+    border-right: 20px solid transparent;
+    border-top: 40px solid #ffd700;
+    filter: drop-shadow(0 3px 6px rgba(0,0,0,.6));
+    z-index: 10;
+  }
+
+  .center-btn {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #ffd700 0%, #ff8c00 100%);
+    border: 5px solid #fff;
+    color: #333;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: 0 5px 20px rgba(0,0,0,.5);
+    transition: transform .2s, box-shadow .2s;
+    z-index: 10;
+    text-transform: uppercase;
+  }
+  .center-btn:hover:not(:disabled) { transform: translate(-50%, -50%) scale(1.08); }
+  .center-btn:active:not(:disabled) { transform: translate(-50%, -50%) scale(.95); }
+  .center-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+  .result-box {
+    min-height: 50px;
+    padding: 15px 30px;
+    background: rgba(255,255,255,.1);
+    border: 2px solid rgba(255,215,0,.5);
+    border-radius: 12px;
+    text-align: center;
+    font-size: 1.2em;
+    backdrop-filter: blur(5px);
+    max-width: 450px;
+    width: 100%;
+  }
+  .result-box strong { color: #ffd700; font-size: 1.3em; }
+
+  .panel {
+    width: 400px;
+    background: rgba(255,255,255,.08);
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255,255,255,.15);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .panel h2 {
+    font-size: 1.3em;
+    margin-bottom: 15px;
+    color: #ffd700;
+    border-bottom: 1px solid rgba(255,255,255,.2);
+    padding-bottom: 10px;
+  }
+
+  .slot-list { max-height: 340px; overflow-y: auto; margin-bottom: 15px; }
+  .slot-list::-webkit-scrollbar { width: 8px; }
+  .slot-list::-webkit-scrollbar-thumb { background: rgba(255,215,0,.4); border-radius: 4px; }
+
+  .slot-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,0,0,.2);
+    padding: 8px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border-left: 4px solid var(--c, #888);
+  }
+
+  .slot-item input[type=color] {
+    width: 32px; height: 32px;
+    border: none; border-radius: 6px;
+    cursor: pointer;
+    background: none;
+    padding: 0;
+  }
+  .slot-item input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+  .slot-item input[type=color]::-webkit-color-swatch { border: 2px solid #fff; border-radius: 6px; }
+
+  .slot-item input[type=text] {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid rgba(255,255,255,.3);
+    border-radius: 6px;
+    background: rgba(0,0,0,.3);
+    color: #fff;
+    font-size: 14px;
+    min-width: 0;
+  }
+  .slot-item input[type=text]:focus { outline: none; border-color: #ffd700; }
+
+  .slot-item input[type=number] {
+    width: 60px;
+    padding: 6px 4px;
+    border: 1px solid rgba(255,255,255,.3);
+    border-radius: 6px;
+    background: rgba(0,0,0,.3);
+    color: #fff;
+    font-size: 14px;
+    text-align: center;
+  }
+  .slot-item input[type=number]:focus { outline: none; border-color: #ffd700; }
+
+  .chance-label { font-size: 12px; opacity: .8; white-space: nowrap; }
+
+  .remove-btn {
+    background: rgba(239,68,68,.8);
+    border: none;
+    color: #fff;
+    width: 30px; height: 30px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: background .2s;
+  }
+  .remove-btn:hover { background: #ef4444; }
+
+  .btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+    margin-bottom: 10px;
+  }
+  .btn-add {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #fff;
+  }
+  .btn-add:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(34,197,94,.4); }
+
+  .btn-reset {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: #fff;
+  }
+  .btn-reset:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(99,102,241,.4); }
+
+  .total-chances {
+    text-align: center;
+    padding: 10px;
+    background: rgba(0,0,0,.3);
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 14px;
+  }
+  .total-chances.warn { border: 1px solid #ef4444; color: #fca5a5; }
+  .total-chances.ok { border: 1px solid #22c55e; color: #86efac; }
+
+  @media (max-width: 950px) {
+    .wheel-container { width: 350px; height: 350px; }
+    .panel { width: 100%; max-width: 450px; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🎡 Колесо Фортуны</h1>
+
+<div class="wheel-section">
+  <div class="wheel-container">
+    <div class="pointer"></div>
+    <canvas id="wheel" width="600" height="600"></canvas>
+    <button class="center-btn" id="spinBtn">Крутить</button>
+  </div>
+  <div class="result-box" id="result">Настройте сектора и нажмите «Крутить»</div>
+</div>
+
+<div class="panel">
+  <h2>⚙️ Настройка секторов</h2>
+  <div class="slot-list" id="slotList"></div>
+  <div class="total-chances" id="totalChances"></div>
+  <button class="btn btn-add" id="addSlot">➕ Добавить сектор</button>
+  <button class="btn btn-reset" id="resetBtn">🔄 Сбросить всё</button>
+</div>
+
+<script>
+// ===== Состояние =====
+let slots = [
+  { name: 'Приз 1', chance: 25, color: '#ff6b6b' },
+  { name: 'Приз 2', chance: 25, color: '#4ecdc4' },
+  { name: 'Приз 3', chance: 25, color: '#ffd93d' },
+  { name: 'Приз 4', chance: 25, color: '#a78bfa' },
+];
+
+const canvas = document.getElementById('wheel');
+const ctx = canvas.getContext('2d');
+const spinBtn = document.getElementById('spinBtn');
+const resultEl = document.getElementById('result');
+const slotListEl = document.getElementById('slotList');
+const totalEl = document.getElementById('totalChances');
+
+let rotation = 0;      // текущий угол (радианы)
+let spinning = false;
+
+const PALETTE = ['#ff6b6b','#4ecdc4','#ffd93d','#a78bfa','#f472b6','#60a5fa','#34d399','#fb923c','#e879f9','#38bdf8'];
+
+// ===== Рисование колеса =====
+function drawWheel() {
+  const size = canvas.width;
+  const cx = size / 2, cy = size / 2, r = size / 2 - 10;
+  ctx.clearRect(0, 0, size, size);
+
+  const total = slots.reduce((s, x) => s + Math.max(0, x.chance || 0), 0);
+
+  if (total <= 0 || slots.length === 0) {
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#888';
+    ctx.font = 'bold 28px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Нет данных', cx, cy + 10);
+    return;
+  }
+
+  // Сектора пропорциональны шансам (углы)
+  let startAngle = rotation;
+  const baseAngle = -Math.PI / 2; // верх
+
+  slots.forEach((slot, i) => {
+    const weight = Math.max(0, slot.chance || 0);
+    if (weight === 0) return;
+    const angle = (weight / total) * Math.PI * 2;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, baseAngle + startAngle, baseAngle + startAngle + angle);
+    ctx.closePath();
+    ctx.fillStyle = slot.color || PALETTE[i % PALETTE.length];
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.7)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Текст
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(baseAngle + startAngle + angle / 2);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#111';
+    ctx.font = 'bold 20px Arial';
+    ctx.shadowColor = 'rgba(255,255,255,.7)';
+    ctx.shadowBlur = 4;
+
+    // Обрезка длинного текста
+    let label = slot.name || '—';
+    if (label.length > 16) label = label.slice(0, 15) + '…';
+    ctx.fillText(label, r - 20, 7);
+    ctx.restore();
+
+    startAngle += angle;
+  });
+
+  // Обводка
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = '#ffd700';
+  ctx.lineWidth = 6;
+  ctx.stroke();
+}
+
+// ===== Определение выигрышного сектора =====
+function pickWinner() {
+  const total = slots.reduce((s, x) => s + Math.max(0, x.chance || 0), 0);
+  if (total <= 0) return null;
+  let rand = Math.random() * total;
+  for (const slot of slots) {
+    const w = Math.max(0, slot.chance || 0);
+    if (rand < w) return slot;
+    rand -= w;
+  }
+  // fallback на последний ненулевой
+  for (let i = slots.length - 1; i >= 0; i--) {
+    if (Math.max(0, slots[i].chance || 0) > 0) return slots[i];
+  }
+  return null;
+}
+
+// Находим угол, при котором указатель (сверху) попадёт на сектор
+function angleForWinner(winner) {
+  const total = slots.reduce((s, x) => s + Math.max(0, x.chance || 0), 0);
+  const baseAngle = -Math.PI / 2;
+  let start = 0;
+  for (const slot of slots) {
+    const w = Math.max(0, slot.chance || 0);
+    if (w === 0) continue;
+    const angle = (w / total) * Math.PI * 2;
+    if (slot === winner) {
+      // Указатель сверху = угол -PI/2. Хотим, чтобы середина сектора оказалась на -PI/2
+      // rotation + start + angle/2 = 0 (mod 2PI) => rotation = -(start + angle/2)
+      const mid = start + angle / 2;
+      return -mid + Math.random() * angle * 0.6 - angle * 0.3;
+    }
+    start += angle;
+  }
+  return 0;
+}
+
+// ===== Кручение =====
+spinBtn.addEventListener('click', () => {
+  if (spinning) return;
+  const total = slots.reduce((s, x) => s + Math.max(0, x.chance || 0), 0);
+  if (total <= 0) {
+    resultEl.innerHTML = '⚠️ Добавьте сектора со шансами больше 0';
+    return;
+  }
+
+  const winner = pickWinner();
+  if (!winner) return;
+
+  spinning = true;
+  spinBtn.disabled = true;
+  resultEl.textContent = 'Крутим... 🎲';
+
+  const targetRotation = angleForWinner(winner);
+  const turns = 6 + Math.random() * 3; // оборотов
+  const startRotation = rotation;
+  const finalRotation = startRotation + turns * Math.PI * 2 +
+    ((targetRotation - startRotation) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+
+  const duration = 4500 + Math.random() * 1000;
+  const t0 = performance.now();
+
+  function animate(now) {
+    const t = Math.min((now - t0) / duration, 1);
+    // easeOutCubic
+    const eased = 1 - Math.pow(1 - t, 3);
+    rotation = startRotation + (finalRotation - startRotation) * eased;
+    drawWheel();
+
+    if (t < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      rotation = finalRotation % (Math.PI * 2);
+      drawWheel();
+      spinning = false;
+      spinBtn.disabled = false;
+      resultEl.innerHTML = `🎉 Выигрыш: <strong>${escapeHtml(winner.name || '—')}</strong>`;
+    }
+  }
+  requestAnimationFrame(animate);
+});
+
+// ===== UI списка секторов =====
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderList() {
+  slotListEl.innerHTML = '';
+  slots.forEach((slot, i) => {
+    const div = document.createElement('div');
+    div.className = 'slot-item';
+    div.style.setProperty('--c', slot.color || PALETTE[i % PALETTE.length]);
+
+    const color = document.createElement('input');
+    color.type = 'color';
+    color.value = slot.color || PALETTE[i % PALETTE.length];
+    color.addEventListener('input', () => {
+      slot.color = color.value;
+      div.style.setProperty('--c', color.value);
+      drawWheel();
+    });
+
+    const name = document.createElement('input');
+    name.type = 'text';
+    name.value = slot.name;
+    name.placeholder = 'Название';
+    name.addEventListener('input', () => {
+      slot.name = name.value;
+      drawWheel();
+    });
+
+    const chance = document.createElement('input');
+    chance.type = 'number';
+    chance.min = '0';
+    chance.step = '1';
+    chance.value = slot.chance;
+    chance.addEventListener('input', () => {
+      slot.chance = Math.max(0, parseFloat(chance.value) || 0);
+      updateTotal();
+      drawWheel();
+    });
+
+    const label = document.createElement('span');
+    label.className = 'chance-label';
+    label.textContent = '%';
+
+    const rm = document.createElement('button');
+    rm.className = 'remove-btn';
+    rm.textContent = '×';
+    rm.title = 'Удалить';
+    rm.addEventListener('click', () => {
+      slots.splice(i, 1);
+      renderList();
+      drawWheel();
+      updateTotal();
+    });
+
+    div.append(color, name, chance, label, rm);
+    slotListEl.appendChild(div);
+  });
+  updateTotal();
+}
+
+function updateTotal() {
+  const total = slots.reduce((s, x) => s + Math.max(0, x.chance || 0), 0);
+  totalEl.textContent = `Сумма шансов: ${total}%` + (total === 100 ? ' ✓' : '');
+  totalEl.className = 'total-chances ' + (Math.abs(total - 100) < 0.01 ? 'ok' : 'warn');
+}
+
+document.getElementById('addSlot').addEventListener('click', () => {
+  if (slots.length >= 12) {
+    alert('Максимум 12 секторов');
+    return;
+  }
+  const used = slots.reduce((s, x) => s + x.chance, 0);
+  const remaining = Math.max(0, 100 - used);
+  const name = `Сектор ${slots.length + 1}`;
+  slots.push({
+    name,
+    chance: slots.length < 12 ? Math.round(remaining) || 10 : 10,
+    color: PALETTE[slots.length % PALETTE.length]
+  });
+  // Пересчитываем, чтобы сумма оставалась логичной (не обязательно 100)
+  renderList();
+  drawWheel();
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  if (!confirm('Сбросить настройки колеса?')) return;
+  slots = [
+    { name: 'Приз 1', chance: 25, color: '#ff6b6b' },
+    { name: 'Приз 2', chance: 25, color: '#4ecdc4' },
+    { name: 'Приз 3', chance: 25, color: '#ffd93d' },
+    { name: 'Приз 4', chance: 25, color: '#a78bfa' },
+  ];
+  rotation = 0;
+  resultEl.textContent = 'Настройте сектора и нажмите «Крутить»';
+  renderList();
+  drawWheel();
+});
+
+// ===== Инициализация =====
+renderList();
+drawWheel();
+</script>
+</body>
+  </html>
